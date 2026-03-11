@@ -3,6 +3,23 @@
 import { useEffect, useRef, useState } from 'react'
 import './home.css'
 
+// Helper: split text into char spans with animation delay
+function AnimatedText({ text, baseDelay = 0.5, className = '' }: { text: string; baseDelay?: number; className?: string }) {
+  return (
+    <span className={className}>
+      {text.split('').map((ch, i) => (
+        <span
+          key={i}
+          className="ch"
+          style={{ animationDelay: `${baseDelay + i * 0.045}s` }}
+        >
+          {ch === ' ' ? '\u00a0' : ch}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const ltoRef = useRef<HTMLDivElement>(null)
@@ -11,26 +28,53 @@ export default function Home() {
   const p1Ref = useRef<HTMLDivElement>(null)
   const p1tRef = useRef<HTMLSpanElement>(null)
   const p2Ref = useRef<HTMLDivElement>(null)
-  const navRef = useRef<HTMLElement>(null)
-  const hbgRef = useRef<HTMLButtonElement>(null)
-  const mobRef = useRef<HTMLDivElement>(null)
+  const philBgRef = useRef<HTMLDivElement>(null)
+  const cursorRef = useRef<HTMLDivElement>(null)
+  const cursorGlowRef = useRef<HTMLDivElement>(null)
   const [mobOpen, setMobOpen] = useState(false)
   const [navScrolled, setNavScrolled] = useState(false)
   const [hbgOpen, setHbgOpen] = useState(false)
+
+  // Custom cursor
+  useEffect(() => {
+    const cursor = cursorRef.current
+    const glow = cursorGlowRef.current
+    if (!cursor || !glow) return
+    let mx = 0, my = 0, gx = 0, gy = 0
+    const onMove = (e: MouseEvent) => {
+      mx = e.clientX; my = e.clientY
+      cursor.style.left = mx + 'px'
+      cursor.style.top = my + 'px'
+    }
+    let raf: number
+    function animateGlow() {
+      gx += (mx - gx) * .08
+      gy += (my - gy) * .08
+      glow!.style.left = gx + 'px'
+      glow!.style.top = gy + 'px'
+      raf = requestAnimationFrame(animateGlow)
+    }
+    animateGlow()
+    window.addEventListener('mousemove', onMove)
+    const els = document.querySelectorAll('a,button')
+    els.forEach(el => {
+      el.addEventListener('mouseenter', () => cursor.classList.add('hovering'))
+      el.addEventListener('mouseleave', () => cursor.classList.remove('hovering'))
+    })
+    return () => { window.removeEventListener('mousemove', onMove); cancelAnimationFrame(raf) }
+  }, [])
 
   // Star canvas
   useEffect(() => {
     const cv = canvasRef.current
     if (!cv) return
     const cx = cv.getContext('2d')!
-
     function resize() {
       const r = cv!.parentElement!.getBoundingClientRect()
       cv!.width = r.width; cv!.height = r.height
     }
     resize()
     window.addEventListener('resize', resize)
-
     const STARS = Array.from({ length: 200 }, () => ({
       x: Math.random(), y: Math.random(),
       r: .2 + Math.random() * 1.3,
@@ -39,13 +83,11 @@ export default function Home() {
       ph: Math.random() * Math.PI * 2,
     }))
     const shoots: { x:number;y:number;len:number;sp:number;t:number;a:number;ang:number }[] = []
-
     function addShoot() {
       shoots.push({ x: Math.random()*.7+.05, y: Math.random()*.4, len: 70+Math.random()*110, sp: .003+Math.random()*.003, t: 0, a: .6+Math.random()*.4, ang: Math.PI*.18 })
     }
-    const t1 = setTimeout(() => { addShoot(); }, 2000)
+    const t1 = setTimeout(() => addShoot(), 2000)
     const t2 = setInterval(addShoot, 3400)
-
     let raf: number
     function draw() {
       const W = cv!.width, H = cv!.height
@@ -102,15 +144,12 @@ export default function Home() {
     const p1 = p1Ref.current!, p1t = p1tRef.current!, p2 = p2Ref.current!
     const cur = document.createElement('span'); cur.className = 'sk-l-cursor'
     const timers: ReturnType<typeof setTimeout>[] = []
-
     function buildFull() { return msgs[mi % msgs.length].lines.join('\n') }
-
     function type() {
       if (ci < ft.length) {
         dt += ft[ci++]; lb.textContent = dt; lb.appendChild(cur)
         const c = ft[ci-1]
-        const delay = c==='\n' ? 230 : (c==='。'||c==='、') ? 130 : 46+Math.random()*26
-        timers.push(setTimeout(type, delay))
+        timers.push(setTimeout(type, c==='\n' ? 230 : (c==='。'||c==='、') ? 130 : 46+Math.random()*26))
       } else {
         lf.textContent = msgs[mi%msgs.length].from
         p1t.textContent = msgs[mi%msgs.length].amt
@@ -119,7 +158,6 @@ export default function Home() {
         timers.push(setTimeout(next, 4400))
       }
     }
-
     function next() {
       p1.classList.remove('on'); p2.classList.remove('on')
       ;[lto, lb, lf].forEach(e => { e.style.transition='opacity .48s'; e.style.opacity='0' })
@@ -131,7 +169,6 @@ export default function Home() {
         timers.push(setTimeout(type, 480))
       }, 580))
     }
-
     lto.textContent = msgs[0].to; ft = buildFull(); lb.appendChild(cur)
     timers.push(setTimeout(type, 1000))
     return () => timers.forEach(clearTimeout)
@@ -144,12 +181,25 @@ export default function Home() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  // Parallax for philosophy bg
+  useEffect(() => {
+    const onScroll = () => {
+      const bg = philBgRef.current
+      if (!bg) return
+      const rect = bg.parentElement!.getBoundingClientRect()
+      const pct = (window.innerHeight - rect.top) / (window.innerHeight + rect.height)
+      bg.style.transform = `translateY(${(pct - 0.5) * 60}px)`
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   // Reveal on scroll
   useEffect(() => {
     const io = new IntersectionObserver(entries => {
       entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in') })
-    }, { threshold: .1 })
-    document.querySelectorAll('.rv').forEach(e => io.observe(e))
+    }, { threshold: .08 })
+    document.querySelectorAll('.rv,.rv-left,.rv-right,.rv-scale').forEach(e => io.observe(e))
     return () => io.disconnect()
   }, [])
 
@@ -157,8 +207,12 @@ export default function Home() {
 
   return (
     <>
+      {/* CURSOR */}
+      <div ref={cursorRef} className="sk-cursor"/>
+      <div ref={cursorGlowRef} className="sk-cursor-glow"/>
+
       {/* NAV */}
-      <nav ref={navRef} className={`sk-nav${navScrolled ? ' scrolled' : ''}`}>
+      <nav className={`sk-nav${navScrolled ? ' scrolled' : ''}`}>
         <a className="sk-logo" href="#">SHIKAKERU</a>
         <div className="sk-nav-right">
           <ul className="sk-nav-links">
@@ -168,12 +222,12 @@ export default function Home() {
             <li><a href="#contact">Contact</a></li>
           </ul>
           <a href="#contact" className="sk-nav-cta">お問い合わせ</a>
-          <button ref={hbgRef} className={`sk-hbg${hbgOpen ? ' open' : ''}`} onClick={() => { setHbgOpen(v=>!v); setMobOpen(v=>!v) }}>
+          <button className={`sk-hbg${hbgOpen ? ' open' : ''}`} onClick={() => { setHbgOpen(v=>!v); setMobOpen(v=>!v) }}>
             <span/><span/><span/>
           </button>
         </div>
       </nav>
-      <div ref={mobRef} className={`sk-mob${mobOpen ? ' open' : ''}`}>
+      <div className={`sk-mob${mobOpen ? ' open' : ''}`}>
         <a href="#vision" onClick={closeMob}>Vision</a>
         <a href="#services" onClick={closeMob}>事業</a>
         <a href="#company" onClick={closeMob}>会社概要</a>
@@ -188,7 +242,13 @@ export default function Home() {
             <span className="sk-eyebrow-dot"/>
             <span className="sk-eyebrow-txt">FUKUI, JAPAN — EST. 2025</span>
           </div>
-          <h1 className="sk-h1">生きる<span className="sk-h1-blu">仕掛け</span>を、<br/>社会へ。</h1>
+          <h1 className="sk-h1">
+            <AnimatedText text="生きる" baseDelay={0.5} />
+            <AnimatedText text="仕掛け" baseDelay={0.5} className="sk-h1-blu" />
+            <AnimatedText text="を、" baseDelay={0.5} />
+            <br/>
+            <AnimatedText text="社会へ。" baseDelay={0.8} />
+          </h1>
           <p className="sk-h-en">Make Life Alive.</p>
           <p className="sk-h-desc">
             人生が動く瞬間は、たいてい偶然のように訪れる。<br/>
@@ -196,7 +256,7 @@ export default function Home() {
             SHIKAKERUは、見えない縁を見える様にする。
           </p>
           <div className="sk-h-btns">
-            <a href="#services" className="sk-btn-dark">事業を見る</a>
+            <a href="#services" className="sk-btn-dark"><span>事業を見る</span></a>
             <a href="#contact" className="sk-btn-bdr">お問い合わせ</a>
           </div>
         </div>
@@ -220,6 +280,10 @@ export default function Home() {
             <div className="sk-pill sk-pill-bot" ref={p2Ref}>
               <span className="sk-pill-dot"/>メッセージが届きました
             </div>
+          </div>
+          <div className="sk-scroll-hint">
+            <div className="sk-scroll-line"/>
+            <span className="sk-scroll-txt">SCROLL</span>
           </div>
         </div>
       </section>
@@ -247,11 +311,20 @@ export default function Home() {
             <p className="sk-sd">SHIKAKERUが大切にする、5つの行動指針。</p>
           </div>
           <div className="sk-val-grid">
-            <div className="sk-vi rv d1"><p className="sk-vn">VALUE 01</p><h3>Start Before You&apos;re Ready</h3><p>完璧を待たず、まず仕掛ける。</p></div>
-            <div className="sk-vi rv d2"><p className="sk-vn">VALUE 02</p><h3>Move Hearts</h3><p>人の心が動くかどうかを、すべての判断基準にする。</p></div>
-            <div className="sk-vi rv d3"><p className="sk-vn">VALUE 03</p><h3>Create the Chance</h3><p>人生が動くきっかけをつくり続ける。</p></div>
-            <div className="sk-vi rv d4"><p className="sk-vn">VALUE 04</p><h3>Build with Co-Conspirators</h3><p>共犯者と未来をつくる。</p></div>
-            <div className="sk-vi rv d5"><p className="sk-vn">VALUE 05</p><h3>Choose the Bold Path</h3><p>安全より挑戦を選ぶ。</p></div>
+            {[
+              {n:'01',en:'Start Before You\'re Ready',ja:'完璧を待たず、まず仕掛ける。'},
+              {n:'02',en:'Move Hearts',ja:'人の心が動くかどうかを、すべての判断基準にする。'},
+              {n:'03',en:'Create the Chance',ja:'人生が動くきっかけをつくり続ける。'},
+              {n:'04',en:'Build with Co-Conspirators',ja:'共犯者と未来をつくる。'},
+              {n:'05',en:'Choose the Bold Path',ja:'安全より挑戦を選ぶ。'},
+            ].map((v,i) => (
+              <div className={`sk-vi rv d${i+1}`} key={v.n}>
+                <p className="sk-vn">VALUE {v.n}</p>
+                <h3>{v.en}</h3>
+                <p>{v.ja}</p>
+                <span className="sk-vn-big">{v.n}</span>
+              </div>
+            ))}
             <div className="sk-vi" style={{background:'var(--off)'}}/>
           </div>
         </div>
@@ -280,7 +353,7 @@ export default function Home() {
             <p className="sk-sd">葬儀業界を起点に、見えない縁を見える様にするテクノロジーを届けています。</p>
           </div>
           <div className="sk-svc-grid">
-            <div className="sk-sc rv d2">
+            <div className="sk-sc rv-left d2">
               <div className="sk-sc-bar"/>
               <span className="sk-sc-tag">Remote Condolence System</span>
               <h3 className="sk-sc-name">礼</h3>
@@ -294,7 +367,7 @@ export default function Home() {
               </ul>
               <a href="https://www.smartkenpai.com/rei-lp.html" target="_blank" rel="noopener noreferrer" className="sk-sc-link">サービス詳細を見る</a>
             </div>
-            <div className="sk-sc c2 rv d3">
+            <div className="sk-sc c2 rv-right d3">
               <div className="sk-sc-bar"/>
               <span className="sk-sc-tag">LINE × AI Custom Development</span>
               <h3 className="sk-sc-name">LINE × AI</h3>
@@ -314,20 +387,15 @@ export default function Home() {
 
       {/* PHILOSOPHY */}
       <section className="sk-phil">
-        <div className="sk-phil-inner rv">
+        <div className="sk-phil-bg" ref={philBgRef}/>
+        <div className="sk-phil-inner rv-scale">
           <div className="sk-ey wt" style={{justifyContent:'center',marginBottom:'18px'}}>
             <span className="sk-ey-line"/><span className="sk-ey-text">OUR PHILOSOPHY</span>
           </div>
           <h2 className="sk-phil-title">見えない縁を、<br/><span className="hl">見える様に。</span></h2>
-          <p className="sk-phil-body">
-            距離があっても、時間が経っていても、人と人のつながりは消えない。
-          </p>
-          <p className="sk-phil-body" style={{marginTop:'1.4em'}}>
-            SHIKAKERUは、テクノロジーの力でそのつながりを可視化し、「定数」だと思われていたことを「変数」に変えていく。
-          </p>
-          <p className="sk-phil-body" style={{marginTop:'1.4em'}}>
-            葬儀業界から始まり、すべての人生が動き出す社会へ。
-          </p>
+          <p className="sk-phil-body">距離があっても、時間が経っていても、人と人のつながりは消えない。</p>
+          <p className="sk-phil-body" style={{marginTop:'1.4em'}}>SHIKAKERUは、テクノロジーの力でそのつながりを可視化し、「定数」だと思われていたことを「変数」に変えていく。</p>
+          <p className="sk-phil-body" style={{marginTop:'1.4em'}}>葬儀業界から始まり、すべての人生が動き出す社会へ。</p>
         </div>
       </section>
 
