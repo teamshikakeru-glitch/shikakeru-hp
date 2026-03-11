@@ -131,7 +131,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--white);color:var(--t
 .sk-ey-text{font-family:'DM Sans',sans-serif;font-size:.65rem;letter-spacing:.3em;color:var(--blue)}
 .sk-ey.wt .sk-ey-line{background:rgba(255,255,255,.4)}
 .sk-ey.wt .sk-ey-text{color:rgba(255,255,255,.4)}
-.sk-bsh{font-family:'DM Sans',sans-serif;font-size:clamp(2.8rem,6vw,5.2rem);font-weight:700;line-height:1.05;letter-spacing:-.03em;color:var(--text);margin-bottom:clamp(10px,1.5vw,16px)}
+.sk-bsh{font-family:'DM Sans',sans-serif;font-size:clamp(2.8rem,6vw,5.2rem);font-weight:700;line-height:1.05;letter-spacing:-.03em;color:var(--text);margin-bottom:clamp(10px,1.5vw,16px);word-break:keep-all}
 .sk-bsh .acc{color:var(--blue)}
 .sk-bsh-bar{width:44px;height:3px;background:var(--accent);margin-bottom:clamp(14px,2vw,22px)}
 .sk-bsh-sub{font-size:.9rem;color:var(--sub);line-height:2;font-weight:300;max-width:540px}
