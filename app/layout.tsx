@@ -19,4 +19,4 @@ export default function RootLayout({
       <body className={inter.className}>{children}</body>
     </html>
   );
-}
+}<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700;900&family=Noto+Sans+JP:wght@300;400;500&family=Kaisei+Tokumin:wght@400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />

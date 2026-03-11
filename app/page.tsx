@@ -1,297 +1,422 @@
-'use client';
+'use client'
 
-import React, { useState, useRef, useEffect } from 'react';
-import { CreditCard, Share2, ChevronRight, Lock, X, Camera, Heart, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Zen_Old_Mincho, Noto_Sans_JP } from 'next/font/google';
-import { supabase } from '../lib/supabaseClient'; // データベース接続
+import { useEffect, useRef, useState } from 'react'
+import './home.css'
 
-// --- フォント設定 ---
-const zenOldMincho = Zen_Old_Mincho({ weight: ['400', '700', '900'], subsets: ['latin'] });
-const notoSansJP = Noto_Sans_JP({ weight: ['400', '500', '700'], subsets: ['latin'] });
+export default function Home() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const ltoRef = useRef<HTMLDivElement>(null)
+  const lbodyRef = useRef<HTMLDivElement>(null)
+  const lfromRef = useRef<HTMLDivElement>(null)
+  const p1Ref = useRef<HTMLDivElement>(null)
+  const p1tRef = useRef<HTMLSpanElement>(null)
+  const p2Ref = useRef<HTMLDivElement>(null)
+  const navRef = useRef<HTMLElement>(null)
+  const hbgRef = useRef<HTMLButtonElement>(null)
+  const mobRef = useRef<HTMLDivElement>(null)
+  const [mobOpen, setMobOpen] = useState(false)
+  const [navScrolled, setNavScrolled] = useState(false)
+  const [hbgOpen, setHbgOpen] = useState(false)
 
-// --- 金額フォーマッター ---
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(amount);
-};
-
-export default function MemorialPage() {
-  const [currentStep, setCurrentStep] = useState<'home' | 'payment' | 'success'>('home');
-  const [heroImage, setHeroImage] = useState("https://images.unsplash.com/photo-1516589174184-c685266e48df?q=80&w=2000");
-  
-  // 入力データ
-  const [amount, setAmount] = useState(10000);
-  const [senderName, setSenderName] = useState('');
-  const [message, setMessage] = useState(''); // メッセージの状態を追加
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // データベースから取得したプロジェクト情報
-  const [projectId, setProjectId] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 初回読み込み時に「佐藤家」のデータを取得する
+  // Star canvas
   useEffect(() => {
-    const fetchProject = async () => {
-      // SQLで作った 'sato-demo' というIDの案件を探しに行く
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, family_name')
-        .eq('slug', 'sato-demo')
-        .single();
-      
-      if (data) {
-        setProjectId(data.id);
-        console.log("接続成功: 佐藤家データを取得しました", data);
-      } else {
-        console.error("データ取得エラー:", error);
+    const cv = canvasRef.current
+    if (!cv) return
+    const cx = cv.getContext('2d')!
+
+    function resize() {
+      const r = cv!.parentElement!.getBoundingClientRect()
+      cv!.width = r.width; cv!.height = r.height
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    const STARS = Array.from({ length: 200 }, () => ({
+      x: Math.random(), y: Math.random(),
+      r: .2 + Math.random() * 1.3,
+      a: .15 + Math.random() * .6,
+      sp: .007 + Math.random() * .013,
+      ph: Math.random() * Math.PI * 2,
+    }))
+    const shoots: { x:number;y:number;len:number;sp:number;t:number;a:number;ang:number }[] = []
+
+    function addShoot() {
+      shoots.push({ x: Math.random()*.7+.05, y: Math.random()*.4, len: 70+Math.random()*110, sp: .003+Math.random()*.003, t: 0, a: .6+Math.random()*.4, ang: Math.PI*.18 })
+    }
+    const t1 = setTimeout(() => { addShoot(); }, 2000)
+    const t2 = setInterval(addShoot, 3400)
+
+    let raf: number
+    function draw() {
+      const W = cv!.width, H = cv!.height
+      cx.clearRect(0, 0, W, H)
+      const nb = cx.createRadialGradient(W*.55,H*.38,0,W*.55,H*.38,W*.5)
+      nb.addColorStop(0,'rgba(28,58,165,.12)'); nb.addColorStop(1,'rgba(5,14,42,0)')
+      cx.fillStyle = nb; cx.fillRect(0,0,W,H)
+      const nb2 = cx.createRadialGradient(W*.18,H*.72,0,W*.18,H*.72,W*.32)
+      nb2.addColorStop(0,'rgba(55,18,110,.07)'); nb2.addColorStop(1,'rgba(5,14,42,0)')
+      cx.fillStyle = nb2; cx.fillRect(0,0,W,H)
+      STARS.forEach(s => {
+        s.ph += s.sp
+        const a = s.a * (.55 + .45*Math.sin(s.ph))
+        cx.fillStyle = `rgba(215,230,255,${a})`
+        cx.beginPath(); cx.arc(s.x*W, s.y*H, s.r, 0, Math.PI*2); cx.fill()
+        if (s.r > 1.1) {
+          cx.strokeStyle = `rgba(200,220,255,${a*.35})`; cx.lineWidth = .5
+          const sz=s.r*3.5, px=s.x*W, py=s.y*H
+          cx.beginPath(); cx.moveTo(px-sz,py); cx.lineTo(px+sz,py); cx.stroke()
+          cx.beginPath(); cx.moveTo(px,py-sz); cx.lineTo(px,py+sz); cx.stroke()
+        }
+      })
+      for (let i = shoots.length-1; i >= 0; i--) {
+        const s = shoots[i]; s.t += s.sp
+        if (s.t > 1) { shoots.splice(i,1); continue }
+        const ease = s.t<.2 ? s.t/.2 : s.t>.8 ? (1-s.t)/.2 : 1
+        const px=(s.x+Math.cos(s.ang)*s.t*.55)*W
+        const py=(s.y+Math.sin(s.ang)*s.t*.55)*H
+        const tx=px-Math.cos(s.ang)*s.len*ease
+        const ty=py-Math.sin(s.ang)*s.len*ease
+        const g=cx.createLinearGradient(tx,ty,px,py)
+        g.addColorStop(0,'rgba(200,225,255,0)'); g.addColorStop(1,`rgba(235,245,255,${s.a*ease})`)
+        cx.strokeStyle=g; cx.lineWidth=1.1
+        cx.beginPath(); cx.moveTo(tx,ty); cx.lineTo(px,py); cx.stroke()
+        const hg=cx.createRadialGradient(px,py,0,px,py,3.5)
+        hg.addColorStop(0,`rgba(255,255,255,${s.a*ease})`); hg.addColorStop(1,'rgba(200,225,255,0)')
+        cx.fillStyle=hg; cx.beginPath(); cx.arc(px,py,3.5,0,Math.PI*2); cx.fill()
       }
-    };
-    fetchProject();
-  }, []);
+      raf = requestAnimationFrame(draw)
+    }
+    draw()
+    return () => { cancelAnimationFrame(raf); clearTimeout(t1); clearInterval(t2); window.removeEventListener('resize', resize) }
+  }, [])
 
-  // 画像アップロード処理（今回はプレビューのみ）
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setHeroImage(URL.createObjectURL(file));
-  };
+  // Letter animation
+  useEffect(() => {
+    const msgs = [
+      { to:'田中ご遺族様へ', lines:['葬儀に参列できず、','申し訳ございません。','','お父様のご冥福を','心よりお祈りしております。','','いつでも連絡ください。'], from:'大阪より　山田 花子', amt:'¥10,000 送金完了' },
+      { to:'佐藤ご遺族様へ', lines:['遠くにいても、','ずっと一緒にいます。','','おじさんには','たくさんお世話になりました。','','ありがとうございました。'], from:'東京より　鈴木 一郎', amt:'¥30,000 送金完了' },
+      { to:'高橋ご遺族様へ', lines:['急なことで、','言葉が見つかりません。','','でも、あなたの笑顔は','絶対に忘れません。','','心よりご冥福をお祈りします。'], from:'北海道より　伊藤 美咲', amt:'¥5,000 送金完了' },
+    ]
+    let mi = 0, ci = 0, dt = '', ft = ''
+    const lto = ltoRef.current!, lb = lbodyRef.current!, lf = lfromRef.current!
+    const p1 = p1Ref.current!, p1t = p1tRef.current!, p2 = p2Ref.current!
+    const cur = document.createElement('span'); cur.className = 'sk-l-cursor'
+    const timers: ReturnType<typeof setTimeout>[] = []
 
-  // 決済＆データ保存実行
-  const handlePayment = async () => {
-    if (!projectId) {
-      alert("システムエラー: 案件データが見つかりません");
-      return;
+    function buildFull() { return msgs[mi % msgs.length].lines.join('\n') }
+
+    function type() {
+      if (ci < ft.length) {
+        dt += ft[ci++]; lb.textContent = dt; lb.appendChild(cur)
+        const c = ft[ci-1]
+        const delay = c==='\n' ? 230 : (c==='。'||c==='、') ? 130 : 46+Math.random()*26
+        timers.push(setTimeout(type, delay))
+      } else {
+        lf.textContent = msgs[mi%msgs.length].from
+        p1t.textContent = msgs[mi%msgs.length].amt
+        timers.push(setTimeout(() => p1.classList.add('on'), 400))
+        timers.push(setTimeout(() => p2.classList.add('on'), 1100))
+        timers.push(setTimeout(next, 4400))
+      }
     }
 
-    setIsSubmitting(true);
-
-    // 1. Supabaseの「transactions」テーブルにデータを保存
-    const { error } = await supabase.from('transactions').insert({
-      project_id: projectId,
-      sender_name: senderName,
-      amount: amount,
-      message: message,
-      net_amount: Math.floor(amount * 0.9), // 仮の手数料計算（10%引き）
-      payment_method: 'credit_card'
-    });
-
-    if (error) {
-      console.error("保存エラー:", error);
-      alert("エラーが発生しました。もう一度お試しください。");
-      setIsSubmitting(false);
-    } else {
-      // 2. 成功したら画面を切り替え
-      // 少し待機してUXを整える
-      setTimeout(() => {
-        setIsSubmitting(false);
-        setCurrentStep('success');
-      }, 1000);
+    function next() {
+      p1.classList.remove('on'); p2.classList.remove('on')
+      ;[lto, lb, lf].forEach(e => { e.style.transition='opacity .48s'; e.style.opacity='0' })
+      timers.push(setTimeout(() => {
+        mi++; dt=''; ci=0; ft=buildFull()
+        lto.textContent = msgs[mi%msgs.length].to
+        lb.textContent=''; lb.appendChild(cur); lf.textContent=''
+        ;[lto, lb, lf].forEach(e => e.style.opacity='1')
+        timers.push(setTimeout(type, 480))
+      }, 580))
     }
-  };
+
+    lto.textContent = msgs[0].to; ft = buildFull(); lb.appendChild(cur)
+    timers.push(setTimeout(type, 1000))
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
+  // Nav scroll
+  useEffect(() => {
+    const onScroll = () => setNavScrolled(window.scrollY > 10)
+    window.addEventListener('scroll', onScroll)
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Reveal on scroll
+  useEffect(() => {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in') })
+    }, { threshold: .1 })
+    document.querySelectorAll('.rv').forEach(e => io.observe(e))
+    return () => io.disconnect()
+  }, [])
+
+  const closeMob = () => { setMobOpen(false); setHbgOpen(false) }
 
   return (
-    <div className={`min-h-screen bg-[#FDFCF8] relative overflow-hidden text-stone-800 ${notoSansJP.className}`}>
-      
-      {/* ノイズテクスチャ */}
-      <div className="fixed inset-0 opacity-[0.04] pointer-events-none mix-blend-multiply z-0"
-           style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
+    <>
+      {/* NAV */}
+      <nav ref={navRef} className={`sk-nav${navScrolled ? ' scrolled' : ''}`}>
+        <a className="sk-logo" href="#">SHIKAKERU</a>
+        <div className="sk-nav-right">
+          <ul className="sk-nav-links">
+            <li><a href="#vision">Vision</a></li>
+            <li><a href="#services">事業</a></li>
+            <li><a href="#company">会社概要</a></li>
+            <li><a href="#contact">Contact</a></li>
+          </ul>
+          <a href="#contact" className="sk-nav-cta">お問い合わせ</a>
+          <button ref={hbgRef} className={`sk-hbg${hbgOpen ? ' open' : ''}`} onClick={() => { setHbgOpen(v=>!v); setMobOpen(v=>!v) }}>
+            <span/><span/><span/>
+          </button>
+        </div>
+      </nav>
+      <div ref={mobRef} className={`sk-mob${mobOpen ? ' open' : ''}`}>
+        <a href="#vision" onClick={closeMob}>Vision</a>
+        <a href="#services" onClick={closeMob}>事業</a>
+        <a href="#company" onClick={closeMob}>会社概要</a>
+        <a href="#contact" onClick={closeMob}>Contact</a>
+        <a href="#contact" className="sk-mob-cta" onClick={closeMob}>お問い合わせ</a>
+      </div>
 
-      <AnimatePresence mode="wait">
-        
-        {/* === STEP 1: ホーム画面 === */}
-        {currentStep === 'home' && (
-          <motion.main 
-            key="home"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.5 }}
-            className="relative z-10 max-w-[480px] mx-auto min-h-screen flex flex-col bg-white/50 sm:min-h-[90vh] sm:my-8 sm:rounded-[40px] sm:shadow-2xl sm:overflow-hidden sm:border sm:border-white/60"
-          >
-            {/* ヒーロー画像 */}
-            <div className="relative h-[45vh] overflow-hidden">
-              <motion.img 
-                initial={{ scale: 1.1 }} animate={{ scale: 1 }} transition={{ duration: 10 }}
-                src={heroImage} className="w-full h-full object-cover" alt="Memorial"
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-[#FDFCF8]" />
-              <button onClick={() => fileInputRef.current?.click()} className="absolute top-6 right-6 bg-white/20 backdrop-blur-xl text-white p-3 rounded-full border border-white/40 shadow-lg active:scale-90 transition-transform">
-                <Camera className="w-5 h-5" />
-              </button>
-              <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
-            </div>
-
-            {/* 情報エリア */}
-            <div className="flex-1 px-8 -mt-24 relative z-20 flex flex-col">
-              <div className="text-center mb-10">
-                <p className="text-stone-500 text-[10px] tracking-[0.4em] uppercase mb-4 drop-shadow-sm text-white/90 font-medium">In Loving Memory</p>
-                <h1 className={`${zenOldMincho.className} text-4xl text-stone-900 mb-3 tracking-wide drop-shadow-sm`}>
-                  佐藤 太郎 <span className="text-xl font-normal opacity-60 ml-1">様</span>
-                </h1>
-                <p className={`${zenOldMincho.className} text-stone-500 text-sm tracking-[0.2em] opacity-80`}>
-                  1950.04.15 — 2026.01.11
-                </p>
+      {/* HERO */}
+      <section id="hero" className="sk-hero">
+        <div className="sk-hero-left">
+          <div className="sk-eyebrow">
+            <span className="sk-eyebrow-dot"/>
+            <span className="sk-eyebrow-txt">FUKUI, JAPAN — EST. 2025</span>
+          </div>
+          <h1 className="sk-h1">生きる<span className="sk-h1-blu">仕掛け</span>を、<br/>社会へ。</h1>
+          <p className="sk-h-en">Make Life Alive.</p>
+          <p className="sk-h-desc">
+            人生が動く瞬間は、たいてい偶然のように訪れる。<br/>
+            でもその多くは、誰かが仕掛けたものかもしれない。<br/>
+            SHIKAKERUは、見えない縁を見える様にする。
+          </p>
+          <div className="sk-h-btns">
+            <a href="#services" className="sk-btn-dark">事業を見る</a>
+            <a href="#contact" className="sk-btn-bdr">お問い合わせ</a>
+          </div>
+        </div>
+        <div className="sk-hero-right">
+          <canvas ref={canvasRef} className="sk-star-canvas"/>
+          <div className="sk-l-wrap">
+            <div className="sk-l-shadow"/>
+            <div className="sk-l-shadow"/>
+            <div className="sk-l-card">
+              <div className="sk-l-stamp">
+                <span className="sk-l-stamp-sm">香典</span>
+                <span className="sk-l-stamp-ch">礼</span>
               </div>
-
-              <div className="bg-white/70 backdrop-blur-xl rounded-[32px] p-8 shadow-[0_4px_40px_-10px_rgba(0,0,0,0.05)] border border-white/80 mb-8 flex-1">
-                <p className={`${zenOldMincho.className} text-stone-700 text-[16px] leading-[2.4] text-justify tracking-wide`}>
-                  生前のご厚情に深く感謝申し上げます。<br/>
-                  皆様からの温かいお気持ちは、故人への最後の手向けとして、ご遺族が大切に使わせていただきます。
-                </p>
-                <div className="mt-8 flex justify-end items-center gap-3 opacity-60">
-                  <span className="h-[1px] w-12 bg-stone-400"></span>
-                  <p className="text-xs text-stone-500 tracking-widest">喪主：佐藤 一郎</p>
-                </div>
-              </div>
-
-              <div className="pb-8 space-y-4">
-                <button 
-                  onClick={() => setCurrentStep('payment')}
-                  className="group relative w-full bg-[#222] text-white py-5 rounded-2xl shadow-xl shadow-stone-900/20 overflow-hidden active:scale-[0.98] transition-all"
-                >
-                  <div className="absolute top-0 left-[-100%] w-1/2 h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-20deg] group-hover:left-[200%] transition-all duration-1000" />
-                  <div className="relative flex items-center justify-between px-8">
-                    <div className="flex items-center gap-4">
-                      <CreditCard className="w-6 h-6 text-orange-100" />
-                      <div className="text-left">
-                        <span className="block text-[10px] text-stone-400 mb-0.5 tracking-wider">お気持ちを届ける</span>
-                        <span className={`${zenOldMincho.className} block text-xl font-bold tracking-widest`}>献杯・支援金</span>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-stone-500 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </button>
-              </div>
+              <div className="sk-l-to" ref={ltoRef}/>
+              <div className="sk-l-body" ref={lbodyRef}/>
+              <div className="sk-l-from" ref={lfromRef}/>
             </div>
-          </motion.main>
-        )}
-
-        {/* === STEP 2: 決済入力画面 === */}
-        {currentStep === 'payment' && (
-          <motion.div 
-            key="payment"
-            initial={{ y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '100%', opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed inset-0 z-50 bg-[#FDFCF8] flex flex-col sm:max-w-[480px] sm:mx-auto sm:my-8 sm:rounded-[40px] sm:border sm:border-stone-200 sm:shadow-2xl sm:overflow-hidden"
-          >
-            <div className="px-6 py-5 flex items-center justify-between border-b border-stone-100 bg-white/80 backdrop-blur-md sticky top-0 z-10">
-              <button onClick={() => setCurrentStep('home')} className="p-2 -ml-2 text-stone-400 hover:text-stone-800 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
-              <h2 className={`${zenOldMincho.className} text-lg font-bold text-stone-800`}>献杯の入力</h2>
-              <div className="w-10" />
+            <div className="sk-pill sk-pill-top" ref={p1Ref}>
+              <span className="sk-pill-dot"/><span ref={p1tRef}/>
             </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-8 pb-32">
-              <div className="mb-10">
-                <label className="block text-stone-400 text-[10px] tracking-[0.2em] uppercase mb-4 font-bold">Select Amount</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {[3000, 5000, 10000, 30000, 50000, 100000].map((val) => (
-                    <button
-                      key={val}
-                      onClick={() => setAmount(val)}
-                      className={`relative py-5 rounded-2xl border transition-all duration-200 ${
-                        amount === val 
-                          ? 'border-stone-800 bg-stone-800 text-white shadow-lg scale-[1.02]' 
-                          : 'border-stone-200 bg-white text-stone-600 hover:border-stone-400'
-                      }`}
-                    >
-                      <span className={`${zenOldMincho.className} text-lg font-bold`}>{val.toLocaleString()}</span>
-                      <span className="text-xs ml-1 opacity-60">円</span>
-                      {amount === val && (
-                        <motion.div layoutId="check" className="absolute top-2 right-2 bg-white/20 rounded-full p-0.5">
-                          <Check className="w-3 h-3" />
-                        </motion.div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-8">
-                <div className="group">
-                  <label className="block text-stone-400 text-[10px] tracking-[0.2em] uppercase mb-2 font-bold group-focus-within:text-orange-900 transition-colors">Your Name</label>
-                  <input 
-                    type="text" 
-                    value={senderName}
-                    onChange={(e) => setSenderName(e.target.value)}
-                    placeholder="山田 太郎"
-                    className="w-full bg-white border border-stone-200 rounded-2xl px-5 py-5 text-lg outline-none focus:ring-2 focus:ring-stone-800/10 focus:border-stone-800 transition-all placeholder:text-stone-300"
-                  />
-                </div>
-                
-                <div className="group">
-                  <label className="block text-stone-400 text-[10px] tracking-[0.2em] uppercase mb-2 font-bold group-focus-within:text-orange-900 transition-colors">Message</label>
-                  <textarea 
-                    rows={4}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="心よりお悔やみ申し上げます。"
-                    className="w-full bg-white border border-stone-200 rounded-2xl px-5 py-5 text-base outline-none focus:ring-2 focus:ring-stone-800/10 focus:border-stone-800 transition-all placeholder:text-stone-300 resize-none"
-                  />
-                </div>
-              </div>
+            <div className="sk-pill sk-pill-bot" ref={p2Ref}>
+              <span className="sk-pill-dot"/>メッセージが届きました
             </div>
+          </div>
+        </div>
+      </section>
 
-            <div className="absolute bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-xl border-t border-stone-100 pb-8 sm:pb-6">
-              <button 
-                onClick={handlePayment}
-                disabled={isSubmitting || !senderName}
-                className="w-full bg-[#222] text-white py-5 rounded-2xl shadow-xl flex items-center justify-center gap-3 active:scale-[0.97] transition-all disabled:opacity-50 disabled:scale-100"
-              >
-                {isSubmitting ? (
-                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <CreditCard className="w-5 h-5 text-orange-100" />
-                    <span className="text-lg font-bold tracking-widest">
-                      {formatCurrency(amount)} を送る
-                    </span>
-                  </>
-                )}
-              </button>
-              <div className="flex items-center justify-center gap-2 mt-4 opacity-40">
-                <Lock className="w-3 h-3 text-stone-500" />
-                <p className="text-[10px] text-stone-500 font-medium">SSL Encrypted Secure Payment</p>
-              </div>
+      {/* MARQUEE */}
+      <div className="sk-marquee">
+        <div className="sk-marquee-track">
+          {[...Array(2)].map((_,i) => (
+            <span key={i} style={{display:'contents'}}>
+              <span className="sk-mi lit">Make Life Alive.</span><span className="sk-mi">生きる仕掛けを。</span>
+              <span className="sk-mi lit">Spark Life.</span><span className="sk-mi">見えない縁を、見える様に。</span>
+              <span className="sk-mi lit">Start Before You&apos;re Ready.</span><span className="sk-mi">定数を変数に変える。</span>
+              <span className="sk-mi lit">Choose the Bold Path.</span><span className="sk-mi">業界を変える。</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* VALUES */}
+      <section className="sk-sec" id="vision" style={{background:'var(--white)'}}>
+        <div className="sk-inner">
+          <div className="rv">
+            <div className="sk-ey"><span className="sk-ey-line"/><span className="sk-ey-text">VALUES</span></div>
+            <h2 className="sk-sh">私たちの価値観</h2>
+            <p className="sk-sd">SHIKAKERUが大切にする、5つの行動指針。</p>
+          </div>
+          <div className="sk-val-grid">
+            <div className="sk-vi rv d1"><p className="sk-vn">VALUE 01</p><h3>Start Before You&apos;re Ready</h3><p>完璧を待たず、まず仕掛ける。</p></div>
+            <div className="sk-vi rv d2"><p className="sk-vn">VALUE 02</p><h3>Move Hearts</h3><p>人の心が動くかどうかを、すべての判断基準にする。</p></div>
+            <div className="sk-vi rv d3"><p className="sk-vn">VALUE 03</p><h3>Create the Chance</h3><p>人生が動くきっかけをつくり続ける。</p></div>
+            <div className="sk-vi rv d4"><p className="sk-vn">VALUE 04</p><h3>Build with Co-Conspirators</h3><p>共犯者と未来をつくる。</p></div>
+            <div className="sk-vi rv d5"><p className="sk-vn">VALUE 05</p><h3>Choose the Bold Path</h3><p>安全より挑戦を選ぶ。</p></div>
+            <div className="sk-vi" style={{background:'var(--off)'}}/>
+          </div>
+        </div>
+      </section>
+
+      {/* MISSION */}
+      <section className="sk-mission">
+        <div className="sk-mission-inner rv">
+          <p className="sk-mission-label">MISSION</p>
+          <h2 className="sk-mission-title">Spark <span className="ac">Life.</span></h2>
+          <p className="sk-mission-body">
+            人の心に火をつけ、人生が動き出すきっかけをつくる。<br/><br/>
+            私たちは事業を通じて、一人ひとりの人生に「仕掛け」を届け続ける。<br/>
+            それが、SHIKAKERUの存在理由です。
+          </p>
+        </div>
+      </section>
+
+      {/* SERVICES */}
+      <section className="sk-sec" id="services" style={{background:'var(--off)'}}>
+        <div className="sk-inner">
+          <div className="rv">
+            <div className="sk-ey"><span className="sk-ey-line"/><span className="sk-ey-text">SERVICES</span></div>
+            <h2 className="sk-sh">事業紹介</h2>
+            <p className="sk-sd">葬儀業界を起点に、見えない縁を見える様にするテクノロジーを届けています。</p>
+          </div>
+          <div className="sk-svc-grid">
+            <div className="sk-sc rv d2">
+              <div className="sk-sc-bar"/>
+              <span className="sk-sc-tag">Remote Condolence System</span>
+              <h3 className="sk-sc-name">礼</h3>
+              <p className="sk-sc-en">REI</p>
+              <p className="sk-sc-desc">葬儀に参列できない方が、スマートフォンからオンラインで香典・お悔やみの気持ちを届けられる遠隔献杯システム。遠方からの香典送付を仕組み化し、葬儀社の新たな価値提供を実現します。</p>
+              <ul className="sk-sc-list">
+                <li>スマートフォンからオンライン香典を送金</li>
+                <li>お悔やみメッセージの送信</li>
+                <li>Stripe決済による安全な処理</li>
+                <li>遺族向けダッシュボードで一括管理</li>
+              </ul>
+              <a href="https://www.smartkenpai.com/rei-lp.html" target="_blank" rel="noopener noreferrer" className="sk-sc-link">サービス詳細を見る</a>
             </div>
-          </motion.div>
-        )}
-
-        {/* === STEP 3: 完了画面 === */}
-        {currentStep === 'success' && (
-          <motion.div 
-            key="success"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="fixed inset-0 z-[60] bg-[#222] flex flex-col items-center justify-center text-white sm:max-w-[480px] sm:mx-auto sm:my-8 sm:rounded-[40px] sm:overflow-hidden"
-          >
-            <motion.div 
-              initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1.5, opacity: 0.2 }} 
-              transition={{ duration: 3, repeat: Infinity, repeatType: "reverse" }}
-              className="absolute w-[300px] h-[300px] bg-orange-100 rounded-full blur-[100px]" 
-            />
-
-            <div className="relative z-10 text-center px-8">
-              <motion.div 
-                initial={{ scale: 0.8, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} transition={{ delay: 0.2, type: 'spring' }}
-                className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-white/20 backdrop-blur-md"
-              >
-                <Heart className="w-10 h-10 text-orange-100 fill-orange-100/20" />
-              </motion.div>
-              
-              <motion.h2 className={`${zenOldMincho.className} text-3xl font-bold mb-4`}>献杯いたしました</motion.h2>
-              <motion.p className="text-white/60 text-sm leading-relaxed mb-12">
-                {senderName} 様の温かいお気持ちは、<br/>確実に記録されました。<br/>ありがとうございました。
-              </motion.p>
-
-              <motion.button 
-                onClick={() => setCurrentStep('home')}
-                className="bg-white text-stone-900 px-8 py-4 rounded-full font-bold text-sm tracking-widest hover:bg-stone-200 transition-colors"
-              >
-                ページに戻る
-              </motion.button>
+            <div className="sk-sc c2 rv d3">
+              <div className="sk-sc-bar"/>
+              <span className="sk-sc-tag">LINE × AI Custom Development</span>
+              <h3 className="sk-sc-name">LINE × AI</h3>
+              <p className="sk-sc-en">CUSTOM BUILD</p>
+              <p className="sk-sc-desc">公式LINEとAIを組み合わせた、御社だけのシステムをゼロから開発します。業務効率化・顧客対応の自動化・独自ツールの構築まで、0→1のプロダクト開発を伴走します。</p>
+              <ul className="sk-sc-list">
+                <li>公式LINE × AI の完全カスタム開発</li>
+                <li>業務フローに合わせたゼロベース設計</li>
+                <li>チャットボット・自動応答・CRM連携</li>
+                <li>導入後の運用・改善サポート</li>
+              </ul>
+              <a href="#contact" className="sk-sc-link">開発について相談する</a>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+          </div>
+        </div>
+      </section>
+
+      {/* PHILOSOPHY */}
+      <section className="sk-phil">
+        <div className="sk-phil-inner rv">
+          <div className="sk-ey wt" style={{justifyContent:'center',marginBottom:'18px'}}>
+            <span className="sk-ey-line"/><span className="sk-ey-text">OUR PHILOSOPHY</span>
+          </div>
+          <h2 className="sk-phil-title">見えない縁を、<br/><span className="hl">見える様に。</span></h2>
+          <p className="sk-phil-body">
+            距離があっても、時間が経っていても、人と人のつながりは消えない。<br/><br/>
+            SHIKAKERUは、テクノロジーの力でそのつながりを可視化し、<br/>
+            「定数」だと思われていたことを「変数」に変えていく。<br/><br/>
+            葬儀業界から始まり、すべての人生が動き出す社会へ。
+          </p>
+        </div>
+      </section>
+
+      {/* BIG TICKER */}
+      <div className="sk-bticker">
+        <div className="sk-bticker-track">
+          {[...Array(2)].map((_,i) => (
+            <span key={i} style={{display:'contents'}}>
+              <span className="sk-bti l">生きる仕掛けを。</span><span className="sk-bti">Make Life Alive.</span>
+              <span className="sk-bti l">見えない縁を、見える様に。</span><span className="sk-bti">Spark Life.</span>
+              <span className="sk-bti l">定数を変数に変える。</span><span className="sk-bti">Choose the Bold Path.</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* CEO MESSAGE */}
+      <section className="sk-ceo-sec">
+        <div className="sk-ceo-inner rv">
+          <div className="sk-ey"><span className="sk-ey-line"/><span className="sk-ey-text">MESSAGE</span></div>
+          <blockquote className="sk-ceo-quote">
+            葬儀は、人が最も「生きている」と感じる瞬間に<br/>
+            隣り合っている場所だと思っています。
+          </blockquote>
+          <p className="sk-ceo-body">
+            日本では今、多くの人が「行きたくても行けない葬儀」に直面しています。遠方に住んでいる。仕事が休めない。それでも、誰かの死に向き合いたい気持ちは、距離では消えません。<br/><br/>
+            SHIKAKERUは、その「届けられなかった気持ち」を届けられる仕組みをつくっています。テクノロジーは、人の温かさに取って代わるものではなく、人の温かさが届く距離を伸ばすものだと信じているからです。<br/><br/>
+            葬儀業界から始まりますが、私たちのゴールはもっと先にあります。見えない縁を見える様にし、人の人生が動き出すきっかけを、社会に仕掛け続けること。それが、SHIKAKERUの存在理由です。
+          </p>
+          <div className="sk-ceo-sig">
+            <div className="sk-ceo-badge"><span>礼</span></div>
+            <div>
+              <p className="sk-ceo-name">中川 航輝</p>
+              <p className="sk-ceo-role">Representative Director / CEO</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* COMPANY */}
+      <section className="sk-sec" id="company" style={{background:'var(--white)'}}>
+        <div className="sk-inner-sm">
+          <div className="rv">
+            <div className="sk-ey"><span className="sk-ey-line"/><span className="sk-ey-text">COMPANY</span></div>
+            <h2 className="sk-sh">会社概要</h2>
+          </div>
+          <div className="sk-co-table rv d2">
+            <div className="sk-co-row">
+              <div className="sk-co-cell"><span className="sk-co-key">会社名</span><span className="sk-co-val">株式会社SHIKAKERU</span></div>
+              <div className="sk-co-cell"><span className="sk-co-key">設立</span><span className="sk-co-val">2025年12月</span></div>
+            </div>
+            <div className="sk-co-row">
+              <div className="sk-co-cell"><span className="sk-co-key">資本金</span><span className="sk-co-val">300万円</span></div>
+              <div className="sk-co-cell"><span className="sk-co-key">代表取締役</span><span className="sk-co-val">中川 航輝</span></div>
+            </div>
+            <div className="sk-co-row">
+              <div className="sk-co-cell"><span className="sk-co-key">所在地</span><span className="sk-co-val">福井県福井市文京2-26-2</span></div>
+              <div className="sk-co-cell"><span className="sk-co-key">取引銀行</span><span className="sk-co-val">福井銀行</span></div>
+            </div>
+            <div className="sk-co-row full">
+              <div className="sk-co-cell"><span className="sk-co-key">事業内容</span><span className="sk-co-val">遠隔献杯システム「礼（Rei）」の開発・運営　／　公式LINE × AIカスタムシステムの開発</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CONTACT */}
+      <section className="sk-sec" id="contact" style={{background:'var(--off)',borderTop:'1px solid var(--bdr)'}}>
+        <div className="sk-ct-inner">
+          <div className="rv">
+            <div className="sk-ey" style={{justifyContent:'center'}}><span className="sk-ey-line"/><span className="sk-ey-text">CONTACT</span></div>
+            <h2 className="sk-sh">お問い合わせ</h2>
+            <p className="sk-ct-desc">葬儀社様のご導入相談、投資家様のお問い合わせ、<br/>採用・開発依頼など、お気軽にご連絡ください。</p>
+          </div>
+          <div className="sk-ct-btns rv d2">
+            <a href="mailto:team.shikakeru@gmail.com" className="sk-ct-btn mail">メールで問い合わせる</a>
+            <a href="https://lin.ee/tM9hty4" target="_blank" rel="noopener noreferrer" className="sk-ct-btn line">LINEで問い合わせる</a>
+            <a href="https://x.com/end_of_office" target="_blank" rel="noopener noreferrer" className="sk-ct-btn x-btn">X をフォローする</a>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="sk-footer">
+        <div>
+          <div className="sk-f-logo" style={{marginBottom:'10px'}}>SHIKAKERU</div>
+          <div className="sk-f-links">
+            <a href="/terms">プライバシーポリシー</a>
+            <a href="/terms">利用規約</a>
+          </div>
+        </div>
+        <span className="sk-f-copy">© 2025 株式会社SHIKAKERU. All rights reserved.</span>
+      </footer>
+    </>
+  )
 }
