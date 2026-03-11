@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { CreditCard, Share2, ChevronRight, Lock, X, Camera, Heart, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zen_Old_Mincho, Noto_Sans_JP } from 'next/font/google';
-import { supabase } from '../lib/supabaseClient'; // データベース接続
+import { supabase } from '../lib/supabase/client'; // データベース接続
 
 // --- フォント設定 ---
 const zenOldMincho = Zen_Old_Mincho({ weight: ['400', '700', '900'], subsets: ['latin'] });
